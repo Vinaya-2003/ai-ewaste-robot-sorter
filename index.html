@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Robotic E-Waste Sorter</title>
+<style>
+  :root { --bg:#0b0f19; --card:#131a2a; --bdr:#243047; --txt:#e2e8f0; --mut:#94a3b8; --red:#ef4444; --amb:#f59e0b; --grn:#10b981; --acc:#38bdf8; }
+  * { box-sizing:border-box; margin:0; font-family:system-ui,-apple-system,sans-serif; }
+  body { background:var(--bg); color:var(--txt); padding:24px; max-width:960px; margin:auto; }
+  h1 { font-size:1.35rem; margin-bottom:4px; } p.sub { color:var(--mut); font-size:.88rem; margin-bottom:18px; }
+  .grid { display:grid; grid-template-columns:1fr 1.2fr; gap:16px; }
+  .card { background:var(--card); border:1px solid var(--bdr); border-radius:10px; padding:16px; }
+  .belt { position:relative; height:110px; background:#090d16; border:1px dashed var(--bdr); border-radius:8px; overflow:hidden; margin-bottom:14px; }
+  .scanner { position:absolute; left:46%; top:0; bottom:0; width:3px; background:var(--acc); box-shadow:0 0 14px var(--acc); }
+  .scanner::after { content:"X-RAY / RGB"; position:absolute; top:6px; left:8px; font-size:.65rem; color:var(--acc); letter-spacing:.08em; }
+  .puck { position:absolute; top:34px; left:6%; width:42px; height:42px; border-radius:8px; display:grid; place-items:center; font-weight:700; font-size:.75rem; transition:all .65s cubic-bezier(.22,1,.36,1); }
+  .ctrl label { display:flex; justify-content:space-between; font-size:.82rem; color:var(--mut); margin-top:10px; }
+  input[type=range] { width:100%; accent-color:var(--acc); margin-top:4px; }
+  .btns { display:flex; gap:8px; flex-wrap:wrap; margin-top:14px; }
+  button { background:#1e293b; color:var(--txt); border:1px solid var(--bdr); padding:7px 11px; border-radius:6px; font-size:.78rem; cursor:pointer; }
+  button.primary { background:var(--acc); color:#090d16; font-weight:600; border:none; }
+  .badge { display:inline-block; padding:3px 8px; border-radius:5px; font-size:.75rem; font-weight:600; }
+  .rule { background:#090d16; border-left:3px solid var(--acc); padding:10px; font-family:monospace; font-size:.78rem; color:#cbd5e1; margin:12px 0; }
+  table { width:100%; border-collapse:collapse; font-size:.78rem; margin-top:8px; }
+  th,td { text-align:left; padding:7px 6px; border-bottom:1px solid var(--bdr); }
+  @media(max-width:720px){ .grid{grid-template-columns:1fr;} }
+</style>
+</head>
+<body>
+  <h1>AI Robotic E-Waste Conveyor Simulator</h1>
+  <p class="sub">Real-time multi-sensor fusion (X-Ray Density + RGB Metallic Ratio + Thermal Signature) driving Decision Tree actuator routing.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div class="belt"><div class="scanner"></div><div id="puck" class="puck">ITEM</div></div>
+      <div class="ctrl">
+        <label><span>X-Ray Density</span><b id="vX">0.89</b></label><input id="sX" type="range" min="0" max="1" step="0.01" value="0.89">
+        <label><span>RGB Metallic Ratio</span><b id="vM">0.48</b></label><input id="sM" type="range" min="0" max="1" step="0.01" value="0.48">
+        <label><span>Thermal Signature</span><b id="vT">0.78</b></label><input id="sT" type="range" min="0" max="1" step="0.01" value="0.78">
+      </div>
+      <div class="btns">
+        <button class="primary" onclick="runScan('Custom Scan')">Scan & Route Item</button>
+        <button onclick="preset('Smartphone',0.89,0.48,0.78)">+ Smartphone</button>
+        <button onclick="preset('Router PCB',0.58,0.82,0.18)">+ Router PCB</button>
+        <button onclick="preset('Plastic Shell',0.14,0.08,0.11)">+ Plastic Shell</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:.82rem;color:var(--mut)">Active Actuator Decision</span>
+        <span id="statusBadge" class="badge">READY</span>
+      </div>
+      <div id="ruleBox" class="rule">Awaiting sensor sweep...</div>
+      <table>
+        <thead><tr><th>Item</th><th>Sensors (X/M/T)</th><th>Predicted Class</th><th>Actuator</th></tr></thead>
+        <tbody id="log"></tbody>
+      </table>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+const RULES = [
+  { test: (x,m,t) => x > 0.72 && t > 0.45, cls: "Lithium_Battery_Device", act: "PICK -> Fire-Safe Bin", col: "var(--red)", y: "10px", code: "IF xray_density > 0.72 AND thermal > 0.45" },
+  { test: (x,m,t) => x > 0.40 && m > 0.50, cls: "Circuit_Board",          act: "DIVERT -> Metal Bay",   col: "var(--amb)", y: "34px", code: "ELSE IF xray_density > 0.40 AND metallic > 0.50" },
+  { test: () => true,                      cls: "Plastic_Casing",         act: "PASS -> Shredder Line", col: "var(--grn)", y: "58px", code: "ELSE (Low Density & Low Thermal Signature)" }
+];
+
+["sX","sM","sT"].forEach(id => $(id).oninput = () => {
+  $("vX").textContent = (+$("sX").value).toFixed(2);
+  $("vM").textContent = (+$("sM").value).toFixed(2);
+  $("vT").textContent = (+$("sT").value).toFixed(2);
+});
+
+function preset(name, x, m, t) {
+  $("sX").value = x; $("sM").value = m; $("sT").value = t;
+  ["sX","sM","sT"].forEach(id => $(id).oninput());
+  runScan(name);
+}
+
+function runScan(label) {
+  const [x, m, t] = [+$("sX").value, +$("sM").value, +$("sT").value];
+  const hit = RULES.find(r => r.test(x, m, t));
+  const puck = $("puck");
+
+  puck.style.transition = "none"; puck.style.left = "6%"; puck.style.top = "34px"; puck.style.background = "#334155";
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    puck.style.transition = "all .65s cubic-bezier(.22,1,.36,1)";
+    puck.style.left = "82%"; puck.style.top = hit.y; puck.style.background = hit.col;
+  }));
+
+  $("statusBadge").textContent = hit.cls;
+  $("statusBadge").style.background = hit.col; $("statusBadge").style.color = "#090d16";
+  $("ruleBox").textContent = `${hit.code}\n-> ${hit.act}`;
+  $("log").insertAdjacentHTML("afterbegin", `<tr><td>${label}</td><td>${x.toFixed(2)} / ${m.toFixed(2)} / ${t.toFixed(2)}</td><td><b>${hit.cls}</b></td><td>${hit.act}</td></tr>`);
+}
+window.onload = () => preset("Smartphone", 0.89, 0.48, 0.78);
+</script>
+</body>
+</html>

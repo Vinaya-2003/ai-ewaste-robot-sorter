@@ -1,0 +1,4 @@
+item,xray_density,metallic_ratio,thermal_signature,prediction,robot_action
+Old Smartphone,0.89,0.48,0.78,Lithium_Battery_Device,PICK -> Fire-Safe Discharge Bin
+Router PCB,0.58,0.82,0.18,Circuit_Board,DIVERT -> Precious Metal Bay
+Keyboard Shell,0.14,0.08,0.11,Plastic_Casing,PASS -> Plastic Shredder
